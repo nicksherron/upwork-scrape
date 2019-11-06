@@ -62,6 +62,14 @@ type Data struct {
 	CanProvide                []string `goquery:"div #detailsTabContent > table > tbody > tr:nth-child(16) > td:nth-child(2)",json:"can_provide"`
 }
 
+
+func check(e error) {
+	if e != nil {
+		panic(e)
+	}
+}
+
+
 func search(client *redis.Client) {
 
 	var keys []string
@@ -72,15 +80,11 @@ func search(client *redis.Client) {
 		s := strconv.Itoa(skip)
 		data := []byte(`{"requestId":"5990252e-de34-48a1-9dc6-9c63e6432c5b","continuationToken":"","skip":` + s + `,"take":"999","sort":"lastName","sortDirection":"asc","keywords":"","filters":{"keywords":"","credentials":[],"services":{"coachingThemes":[],"coachingMethods":{"methods":[],"relocate":false},"standardRate":{"proBono":false,"nonProfitDiscount":false,"feeRanges":[]}},"experience":{"haveCoached":{"clientType":"","organizationalClientTypes":[]},"coachedOrganizations":{"global":false,"nonProfit":false,"industrySector":""},"heldPositions":[]},"demographics":{"gender":"","ageRange":"","fluentLanguages":[],"locations":{"countries":["BC4B70F8-280E-4BB0-B935-9F728C50E183"],"states":[]}},"additional":{"canProvide":[],"designations":[]}}}`)
 		resp, err := curl.Post("https://icf-ccf.azurewebsites.net/api/search", "application/x-www-form-urlencoded", bytes.NewBuffer(data))
-		if err != nil {
-			log.Println(err)
-		}
+		check(err)
 		body, _ := ioutil.ReadAll(resp.Body)
 		var d KeyReponse
 		err = json.Unmarshal(body, &d)
-		if err != nil {
-			log.Println(err)
-		}
+		check(err)
 		for _, v := range (d.Results) {
 			keys = append(keys, v.Key)
 			client.RPush("coach_key", v.Key)
@@ -108,9 +112,7 @@ func page(key string, client *redis.Client, session *mgo.Session) {
 	params := fmt.Sprintf("?webcode=ccfcoachprofileview&site=icfapp&coachcstkey=%v", key)
 	url := "https://apps.coachfederation.org/eweb/CCFDynamicPage.aspx" + params
 	req, err := http.NewRequest("GET", url, nil)
-	if err != nil {
-		log.Println(err)
-	}
+	check(err)
 
 	curl := &http.Client{}
 	resp, err := curl.Do(req)
@@ -133,7 +135,8 @@ func page(key string, client *redis.Client, session *mgo.Session) {
 	var d Data
 	err = goq.Unmarshal(body, &d)
 	if err != nil {
-		log.Println(err)
+		client.RPush("keys_failed", key)
+		check(err)
 	}
 	//fmt.Println(d.Website)
 	//fmt.Println(d.Email)
@@ -174,7 +177,9 @@ func page(key string, client *redis.Client, session *mgo.Session) {
 	collections := session.DB("upwork").C("coaches")
 	_, err = collections.Upsert(bson.M{"id": d.ID}, d)
 	if err != nil {
-		fmt.Println(err)
+		client.RPush("keys_failed", key)
+		check(err)
+
 	}
 	client.RPush("pages_done", key)
 	//
@@ -221,6 +226,7 @@ func main() {
 		wg.Add(1)
 		go page(key, client, session)
 		counter++
+		// only 40 goroutines at a time
 		if counter >= 40 {
 			wg.Wait()
 			log.Println("sleeping for 3 seconds")
