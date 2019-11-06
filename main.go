@@ -36,30 +36,29 @@ type KeyReponse struct {
 }
 
 type Data struct {
-	//Table []string `goquery:"table #tabContainer",json:"table"`
 	ID                        string
 	URL                       string
-	Name                      string   `goquery:"div #profileInfo #coachName,text",json:"name"`
-	Website                   string   `goquery:"table #tabContainer #webSiteLink ,text",json:"site"`
-	Email                     string   `goquery:"table #tabContainer #emailLink ,text",json:"email"`
-	Phone                     string   `goquery:"table #tabContainer #phoneLbl ,text",json:"phone"`
-	Location                  string   `goquery:"table #tabContainer #addressLbl ,text",json:""`
-	CoachingThemes            []string `goquery:"div #detailsTabContent > table > tbody > tr:nth-child(1) > td:nth-child(2)",json:"coaching_themes"`
-	CoachingMethods           []string `goquery:"div #detailsTabContent > table > tbody > tr:nth-child(2) > td:nth-child(2)",json:"coaching_methods"`
-	Relocate                  string   `goquery:"div #detailsTabContent > table > tbody > tr:nth-child(3) > td:nth-child(2) > div",json:"relocate"`
-	SpecialRates              []string `goquery:"div #detailsTabContent > table > tbody > tr:nth-child(4) > td:nth-child(2)",json:"special_rates"`
-	FeeRange                  string   `goquery:"div #detailsTabContent > table > tbody > tr:nth-child(5) > td:nth-child(2) > div",json:"fee_range"`
-	TypeOfClient              string   `goquery:"div #detailsTabContent > table > tbody > tr:nth-child(6) > td:nth-child(2) > div",json:"type_of_client"`
-	OrganizationalClientTypes []string `goquery:"div #detailsTabContent > table > tbody > tr:nth-child(7) > td:nth-child(2)",json:"org_client_types"`
-	CoachedOrganizations      []string `goquery:"div #detailsTabContent > table > tbody > tr:nth-child(8) > td:nth-child(2)",json:"coached_orgs"`
-	IndustrySectorsCoached    []string `goquery:"div #detailsTabContent > table > tbody > tr:nth-child(9) > td:nth-child(2)",json:"ind_secs_coached"`
-	PositionsHeld             []string `goquery:"div #detailsTabContent > table > tbody > tr:nth-child(10) > td:nth-child(2)",json:"pos_held"`
-	HasPriorExperience        string   `goquery:"div #detailsTabContent > table > tbody > tr:nth-child(11) > td:nth-child(2) > div",json:"has_prior_exp"`
-	Degrees                   []string `goquery:"div #detailsTabContent > table > tbody > tr:nth-child(12) > td:nth-child(2)",json:"degrees"`
-	Gender                    string   `goquery:"div #detailsTabContent > table > tbody > tr:nth-child(13) > td:nth-child(2) > div",json:"gender"`
-	Age                       string   `goquery:"div #detailsTabContent > table > tbody > tr:nth-child(14) > td:nth-child(2) > div",json:"age"`
-	FluentLanguages           []string `goquery:"div #detailsTabContent > table > tbody > tr:nth-child(15) > td:nth-child(2)",json:"languages"`
-	CanProvide                []string `goquery:"div #detailsTabContent > table > tbody > tr:nth-child(16) > td:nth-child(2)",json:"can_provide"`
+	Name                      string   `goquery:"div #profileInfo #coachName,text"`
+	Website                   string   `goquery:"table #tabContainer #webSiteLink ,text"`
+	Email                     string   `goquery:"table #tabContainer #emailLink ,text"`
+	Phone                     string   `goquery:"table #tabContainer #phoneLbl ,text"`
+	Location                  string   `goquery:"table #tabContainer #addressLbl ,text"`
+	CoachingThemes            []string `goquery:"div #detailsTabContent > table > tbody > tr:nth-child(1) > td:nth-child(2)"`
+	CoachingMethods           []string `goquery:"div #detailsTabContent > table > tbody > tr:nth-child(2) > td:nth-child(2)"`
+	Relocate                  string   `goquery:"div #detailsTabContent > table > tbody > tr:nth-child(3) > td:nth-child(2) > div"`
+	SpecialRates              []string `goquery:"div #detailsTabContent > table > tbody > tr:nth-child(4) > td:nth-child(2)"`
+	FeeRange                  string   `goquery:"div #detailsTabContent > table > tbody > tr:nth-child(5) > td:nth-child(2) > div"`
+	TypeOfClient              string   `goquery:"div #detailsTabContent > table > tbody > tr:nth-child(6) > td:nth-child(2) > div"`
+	OrganizationalClientTypes []string `goquery:"div #detailsTabContent > table > tbody > tr:nth-child(7) > td:nth-child(2)"`
+	CoachedOrganizations      []string `goquery:"div #detailsTabContent > table > tbody > tr:nth-child(8) > td:nth-child(2)"`
+	IndustrySectorsCoached    []string `goquery:"div #detailsTabContent > table > tbody > tr:nth-child(9) > td:nth-child(2)"`
+	PositionsHeld             []string `goquery:"div #detailsTabContent > table > tbody > tr:nth-child(10) > td:nth-child(2)"`
+	HasPriorExperience        string   `goquery:"div #detailsTabContent > table > tbody > tr:nth-child(11) > td:nth-child(2) > div"`
+	Degrees                   []string `goquery:"div #detailsTabContent > table > tbody > tr:nth-child(12) > td:nth-child(2)"`
+	Gender                    string   `goquery:"div #detailsTabContent > table > tbody > tr:nth-child(13) > td:nth-child(2) > div"`
+	Age                       string   `goquery:"div #detailsTabContent > table > tbody > tr:nth-child(14) > td:nth-child(2) > div"`
+	FluentLanguages           []string `goquery:"div #detailsTabContent > table > tbody > tr:nth-child(15) > td:nth-child(2)"`
+	CanProvide                []string `goquery:"div #detailsTabContent > table > tbody > tr:nth-child(16) > td:nth-child(2)"`
 }
 
 
@@ -95,15 +94,6 @@ func search(client *redis.Client) {
 
 }
 
-//func replace(s []string) []string{
-//	var out []string
-//	for _, v := range s {
-//		v =  strings.ReplaceAll(v, `\\n`, `,`)
-//		out = append(out,v)
-//	}
-//	return  out
-//}
-
 var wg sync.WaitGroup
 
 func page(key string, client *redis.Client, session *mgo.Session) {
@@ -138,38 +128,6 @@ func page(key string, client *redis.Client, session *mgo.Session) {
 		client.RPush("keys_failed", key)
 		check(err)
 	}
-	//fmt.Println(d.Website)
-	//fmt.Println(d.Email)
-	//fmt.Println(d.Phone)
-	//fmt.Println(d.Location)
-	//fmt.Println(d.CoachingThemes)
-	//fmt.Println(d.CoachingMethods)
-	//fmt.Println(d.Relocate)
-	//fmt.Println(d.SpecialRates)
-	//fmt.Println(d.FeeRange)
-	//fmt.Println(d.TypeOfClient)
-	//fmt.Println(d.OrganizationalClientTypes)
-	//fmt.Println(d.CoachedOrganizations)
-	//fmt.Println(d.IndustrySectorsCoached)
-	//fmt.Println(d.PositionsHeld)
-	//fmt.Println(d.HasPriorExperience)
-	//fmt.Println(d.Degrees)
-	//fmt.Println(d.Gender)
-	//fmt.Println(d.Age)
-	//fmt.Println(d.FluentLanguages)
-	//fmt.Println(d.CanProvide)
-
-	//
-	//d.CoachingThemes = replace(d.CoachingThemes)
-	//d.CoachingMethods = replace(d.CoachingMethods)
-	//d.SpecialRates = replace(d.SpecialRates)
-	//d.OrganizationalClientTypes = replace(d.OrganizationalClientTypes)
-	//d.CoachedOrganizations = replace(d.CoachedOrganizations)
-	//d.IndustrySectorsCoached = replace(d.IndustrySectorsCoached)
-	//d.PositionsHeld = replace(d.PositionsHeld)
-	//d.Degrees = replace(d.Degrees)
-	//d.FluentLanguages = replace(d.FluentLanguages)
-	//d.CanProvide = replace(d.CanProvide)
 
 	d.URL = url
 	d.ID = key
@@ -182,13 +140,6 @@ func page(key string, client *redis.Client, session *mgo.Session) {
 
 	}
 	client.RPush("pages_done", key)
-	//
-	//b, err := json.MarshalIndent(d, "", " ")
-	//if err != nil {
-	//	fmt.Println(err)
-	//}
-	//fmt.Println(string(b))
-
 }
 
 func main() {
