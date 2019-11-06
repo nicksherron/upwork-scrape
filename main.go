@@ -171,8 +171,8 @@ func page(key string, client *redis.Client, session *mgo.Session) {
 	d.URL = url
 	d.ID = key
 
-	collections := session.DB("upwork").C("coach_scrape")
-	_, err = collections.Upsert(bson.M{"ID": d.ID}, d)
+	collections := session.DB("upwork").C("coaches")
+	_, err = collections.Upsert(bson.M{"id": d.ID}, d)
 	if err != nil {
 		fmt.Println(err)
 	}
