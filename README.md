@@ -1,3 +1,3 @@
 ### Scrape project for upwork gig
 
-#### requires mongodb and redis
+#### requires mongodb 
