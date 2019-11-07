@@ -5,7 +5,6 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"github.com/go-redis/redis"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 	"io/ioutil"
@@ -18,20 +17,8 @@ import (
 )
 
 type KeyReponse struct {
-	AssociatedRequestID string `json:"associatedRequestId"`
-	ContinuationToken   string `json:"continuationToken"`
-	ResultCount         int    `json:"resultCount"`
-	Results             []struct {
-		Key                string        `json:"key"`
-		FullName           string        `json:"fullName"`
-		Headline           interface{}   `json:"headline"`
-		Description        interface{}   `json:"description"`
-		Credential         string        `json:"credential"`
-		Designations       []interface{} `json:"designations"`
-		StandardRate       interface{}   `json:"standardRate"`
-		Location           string        `json:"location"`
-		PhotoURL           string        `json:"photoUrl"`
-		HasEnhancedProfile bool          `json:"hasEnhancedProfile"`
+	Results []struct {
+		Key string `json:"key"`
 	} `json:"results"`
 }
 
@@ -61,6 +48,52 @@ type Data struct {
 	CanProvide                []string `goquery:"div #detailsTabContent > table > tbody > tr:nth-child(16) > td:nth-child(2)"`
 }
 
+var (
+	wg      sync.WaitGroup
+	mu      sync.Mutex
+	result  csvSlice
+)
+
+type SafeCounter struct {
+	v   map[string]int
+	mux sync.Mutex
+}
+
+type csvSlice struct {
+	v   []Data
+	mux sync.Mutex
+}
+
+func (d *csvSlice) Add(data Data) {
+	d.mux.Lock()
+	d.v = append(d.v, data)
+	d.mux.Unlock()
+
+}
+
+// Inc increments the counter for the given key.
+func (c *SafeCounter) Inc(key string) {
+	c.mux.Lock()
+	// Lock so only one goroutine at a time can access the map c.v.
+	c.v[key]++
+	c.mux.Unlock()
+}
+
+// Value returns the current value of the counter for the given key.
+func (c *SafeCounter) Value(key string) int {
+	c.mux.Lock()
+	// Lock so only one goroutine at a time can access the map c.v.
+	defer c.mux.Unlock()
+	return c.v[key]
+}
+
+// Value returns the current value of the counter for the given key.
+func (c *SafeCounter) Clear(key string) {
+	c.mux.Lock()
+	// Lock so only one goroutine at a time can access the map c.v.
+	c.v[key] = 0
+	c.mux.Unlock()
+}
 
 func check(e error) {
 	if e != nil {
@@ -68,14 +101,12 @@ func check(e error) {
 	}
 }
 
-
-func search(client *redis.Client) {
+func search() []string {
 
 	var keys []string
 	skip := 0
 	for i := 1; i <= 8; i++ {
 		curl := &http.Client{}
-		defer curl.CloseIdleConnections()
 		s := strconv.Itoa(skip)
 		data := []byte(`{"requestId":"5990252e-de34-48a1-9dc6-9c63e6432c5b","continuationToken":"","skip":` + s + `,"take":"999","sort":"lastName","sortDirection":"asc","keywords":"","filters":{"keywords":"","credentials":[],"services":{"coachingThemes":[],"coachingMethods":{"methods":[],"relocate":false},"standardRate":{"proBono":false,"nonProfitDiscount":false,"feeRanges":[]}},"experience":{"haveCoached":{"clientType":"","organizationalClientTypes":[]},"coachedOrganizations":{"global":false,"nonProfit":false,"industrySector":""},"heldPositions":[]},"demographics":{"gender":"","ageRange":"","fluentLanguages":[],"locations":{"countries":["BC4B70F8-280E-4BB0-B935-9F728C50E183"],"states":[]}},"additional":{"canProvide":[],"designations":[]}}}`)
 		resp, err := curl.Post("https://icf-ccf.azurewebsites.net/api/search", "application/x-www-form-urlencoded", bytes.NewBuffer(data))
@@ -84,19 +115,16 @@ func search(client *redis.Client) {
 		var d KeyReponse
 		err = json.Unmarshal(body, &d)
 		check(err)
-		for _, v := range (d.Results) {
+		for _, v := range d.Results {
 			keys = append(keys, v.Key)
-			client.RPush("coach_key", v.Key)
 		}
-
 		skip = skip + 999
 	}
+	return keys
 
 }
 
-var wg sync.WaitGroup
-
-func page(key string, client *redis.Client, session *mgo.Session) {
+func page(key string, session *mgo.Session) {
 	defer wg.Done()
 
 	params := fmt.Sprintf("?webcode=ccfcoachprofileview&site=icfapp&coachcstkey=%v", key)
@@ -108,7 +136,6 @@ func page(key string, client *redis.Client, session *mgo.Session) {
 	resp, err := curl.Do(req)
 	if err != nil {
 		log.Println(err)
-		client.RPush("keys_failed", key)
 		return
 	}
 	defer resp.Body.Close()
@@ -117,7 +144,6 @@ func page(key string, client *redis.Client, session *mgo.Session) {
 	log.Println("response Status:", resp.Status)
 	if resp.StatusCode != 200 {
 		log.Println(key, "failed!")
-		client.RPush("keys_failed", key)
 		return
 	}
 	body, _ := ioutil.ReadAll(resp.Body)
@@ -125,41 +151,24 @@ func page(key string, client *redis.Client, session *mgo.Session) {
 	var d Data
 	err = goq.Unmarshal(body, &d)
 	if err != nil {
-		client.RPush("keys_failed", key)
 		check(err)
 	}
 
 	d.URL = url
 	d.ID = key
 
-	collections := session.DB("upwork").C("coaches")
+	collections := session.DB("upwork").C("coaches_no_redis")
 	_, err = collections.Upsert(bson.M{"id": d.ID}, d)
 	if err != nil {
-		client.RPush("keys_failed", key)
 		check(err)
 
 	}
-	client.RPush("pages_done", key)
+	result.Add(d)
+	mu.Lock()
+	mu.Unlock()
 }
 
 func main() {
-
-	red, ok := os.LookupEnv("redis")
-	if !ok {
-		red = "localhost:6379"
-	}
-
-	client := redis.NewClient(&redis.Options{
-		Addr:         red,
-		Password:     "", // no password set
-		DB:           0,  // use default DB
-		ReadTimeout:  -1,
-		MaxConnAge:   time.Millisecond,
-		MaxRetries:   10,
-		MinIdleConns: 50,
-	})
-
-	search(client)
 
 	mongo, ok := os.LookupEnv("mongo")
 	if !ok {
@@ -171,18 +180,19 @@ func main() {
 	}
 	session := s.Copy()
 
-	keys := client.LRange("coach_key", int64(0), int64(-1)).Val()
-	counter := 0
-	for _, key := range (keys) {
+	keys := search()
+
+	c := SafeCounter{v: make(map[string]int)}
+	for _, key := range keys {
 		wg.Add(1)
-		go page(key, client, session)
-		counter++
+		go page(key, session)
+		c.Inc("counter")
 		// only 40 goroutines at a time
-		if counter >= 40 {
+		if c.Value("counter") >= 40 {
 			wg.Wait()
 			log.Println("sleeping for 3 seconds")
 			time.Sleep(3 * time.Second)
-			counter = 0
+			c.Clear("counter")
 		}
 	}
 
